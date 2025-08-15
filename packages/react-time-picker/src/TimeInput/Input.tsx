@@ -15,6 +15,8 @@ type InputProps = {
   onChange?: (event: React.ChangeEvent<HTMLInputElement> & { target: HTMLInputElement }) => void;
   onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement> & { target: HTMLInputElement }) => void;
   onKeyUp?: (event: React.KeyboardEvent<HTMLInputElement> & { target: HTMLInputElement }) => void;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  onClick?: (event: React.MouseEvent<HTMLInputElement>) => void;
   placeholder?: string;
   required?: boolean;
   showLeadingZeros?: boolean;
@@ -141,6 +143,8 @@ export default function Input({
   onChange,
   onKeyDown,
   onKeyUp,
+  onBlur,
+  onClick,
   placeholder = '--',
   required,
   showLeadingZeros,
@@ -194,6 +198,8 @@ export default function Input({
             onKeyUp(event);
           }
         }}
+        onBlur={onBlur}
+        onClick={onClick}
         placeholder={placeholder}
         // Assertion is needed for React 18 compatibility
         ref={inputRef as React.RefObject<HTMLInputElement>}

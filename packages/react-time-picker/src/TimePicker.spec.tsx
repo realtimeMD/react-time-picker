@@ -478,7 +478,7 @@ describe('TimePicker', () => {
     expect(clock).toBeInTheDocument();
   });
 
-  it('calls onChange callback when changing value', () => {
+  it('calls onChange callback when changing value', async () => {
     const value = '22:41:28';
     const onChange = vi.fn();
 
@@ -492,10 +492,10 @@ describe('TimePicker', () => {
       fireEvent.change(hourInput, { target: { value: '9' } });
     });
 
-    expect(onChange).toHaveBeenCalledWith('21:41:28');
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('21:41:28'));
   });
 
-  it('calls onInvalidChange callback when changing value to an invalid one', () => {
+  it('calls onInvalidChange callback when changing value to an invalid one', async () => {
     const value = '22:41:28';
     const onInvalidChange = vi.fn();
 
@@ -503,13 +503,13 @@ describe('TimePicker', () => {
       <TimePicker maxDetail="second" onInvalidChange={onInvalidChange} value={value} />,
     );
 
-    const hourInput = container.querySelector('input[name="hour12"]') as HTMLInputElement;
+    const minuteInput = container.querySelector('input[name="minute"]') as HTMLInputElement;
 
     act(() => {
-      fireEvent.change(hourInput, { target: { value: '99' } });
+      fireEvent.change(minuteInput, { target: { value: '65' } });
     });
 
-    expect(onInvalidChange).toHaveBeenCalled();
+    await waitFor(() => expect(onInvalidChange).toHaveBeenCalled());
   });
 
   it('clears the value when clicking on a button', () => {

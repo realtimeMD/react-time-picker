@@ -12,6 +12,7 @@ type Hour12InputProps = {
   maxTime?: string;
   minTime?: string;
   value?: string | null;
+  isFirstDigitZero?: boolean;
 } & Omit<React.ComponentProps<typeof Input>, 'max' | 'min' | 'name' | 'nameForClass'>;
 
 export default function Hour12Input({
@@ -19,6 +20,7 @@ export default function Hour12Input({
   maxTime,
   minTime,
   value,
+  isFirstDigitZero = false,
   ...otherProps
 }: Hour12InputProps): React.ReactElement {
   const maxHour = safeMin(
@@ -55,7 +57,7 @@ export default function Hour12Input({
       })(),
   );
 
-  const value12 = value ? convert24to12(value)[0].toString() : '';
+  const value12 = value ? (isFirstDigitZero ? '0' : convert24to12(value)[0].toString()) : '';
 
   return (
     <Input

@@ -26,6 +26,7 @@ import type { AmPmType, Detail, LooseValuePiece, Value } from './shared/types.js
 const getFormatterOptionsCache: Record<string, Intl.DateTimeFormatOptions> = {};
 
 const allViews = ['hour', 'minute', 'second'] as const;
+const acceptedFirstDigitsForHour: string[] = ['0', '1', '2'];
 
 function isInternalInput(element: HTMLElement) {
   return element.dataset.input === 'true';
@@ -149,6 +150,7 @@ export default function TimeInput({
   value: valueProps,
 }: TimeInputProps): React.ReactElement {
   const [amPm, setAmPm] = useState<AmPmType | null>(null);
+  const twoDigitHour = useRef<string>('');
   const [hour, setHour] = useState<string | null>(null);
   const [minute, setMinute] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
@@ -269,6 +271,22 @@ export default function TimeInput({
       | (React.KeyboardEvent<HTMLSelectElement> & { target: HTMLSelectElement }),
   ) {
     lastPressedKey.current = event.key;
+    if (['hour12', 'hour24'].includes(event.target.name)) {
+      const isNumber = !Number.isNaN(Number(event.key));
+      if (isNumber) {
+        if (twoDigitHour.current.length || acceptedFirstDigitsForHour.includes(event.key)) {
+          if (twoDigitHour.current.length < 2) {
+            if (twoDigitHour.current !== '2' || Number(event.key) < 4) {
+              twoDigitHour.current += event.key;
+            }
+          } else if (event.target.name === 'hour12') {
+            setAmPm((amPm) => amPm || convert24to12(twoDigitHour.current)[1]);
+          }
+        }
+      } else if (event.key === 'Backspace') {
+        twoDigitHour.current = twoDigitHour.current.slice(0, -1);
+      }
+    }
 
     switch (event.key) {
       case 'ArrowLeft':
@@ -308,7 +326,7 @@ export default function TimeInput({
       return;
     }
 
-    const { value } = input;
+    const { name, value } = input;
 
     /**
      * Given 1, the smallest possible number the user could type by adding another digit is 10.
@@ -316,7 +334,15 @@ export default function TimeInput({
      * However, given 2, smallers possible number would be 20, and thus keeping the focus in
      * this field doesn't make sense.
      */
-    if (Number(value) * 10 > Number(max) || value.length >= max.length) {
+    const isHourInput = ['hour12', 'hour24'].includes(name);
+    if (
+      isHourInput
+        ? !twoDigitHour.current ||
+          twoDigitHour.current.length === 2 ||
+          Number(twoDigitHour.current) > Number(max) ||
+          twoDigitHour.current.length >= max.length
+        : Number(value) * 10 > Number(max) || value.length >= max.length
+    ) {
       const property = 'nextElementSibling';
       const nextInput = findInput(input, property);
       focus(nextInput);
@@ -327,7 +353,7 @@ export default function TimeInput({
    * Called after internal onChange. Checks input validity. If all fields are valid,
    * calls props.onChange.
    */
-  function onChangeExternal() {
+  function onChangeExternal(amPm?: AmPmType) {
     if (!onChangeProps) {
       return;
     }
@@ -339,7 +365,7 @@ export default function TimeInput({
     }
 
     const formElements = [
-      amPmInput.current,
+      ...(amPm ? [] : [amPmInput.current]),
       hour12Input.current,
       hour24Input.current,
       minuteInput.current,
@@ -362,14 +388,15 @@ export default function TimeInput({
       onChangeProps(null, false);
       return;
     }
-
+    const amPmValue =
+      amPm || (!values.amPm && Number(twoDigitHour.current) > 12 ? 'pm' : values.amPm);
     const isEveryValueFilled = formElements.every((formElement) => formElement.value);
     const isEveryValueValid = formElements.every((formElement) => formElement.validity.valid);
 
     if (isEveryValueFilled && isEveryValueValid) {
       const hour = Number(
         values.hour24 ||
-          (values.hour12 && values.amPm && convert12to24(values.hour12, values.amPm)) ||
+          (values.hour12 && amPmValue && convert12to24(values.hour12, amPmValue)) ||
           0,
       );
       const minute = Number(values.minute || 0);
@@ -401,10 +428,18 @@ export default function TimeInput({
       case 'amPm':
         setAmPm(value as AmPmType);
         break;
-      case 'hour12':
-        setHour(value ? convert12to24(value, amPm || 'am').toString() : '');
+      case 'hour12': {
+        if (Number(value) > 23) break;
+        const newHour = value
+          ? acceptedFirstDigitsForHour.includes(twoDigitHour.current)
+            ? value
+            : convert12to24(value, amPm || (value === '12' ? 'pm' : 'am')).toString()
+          : '';
+        setHour(newHour);
         break;
+      }
       case 'hour24':
+        if (Number(value) > 23) break;
         setHour(value);
         break;
       case 'minute':
@@ -415,7 +450,8 @@ export default function TimeInput({
         break;
     }
 
-    onChangeExternal();
+    // setTimeout gives the input time to update its value so it can be validated in onChangeExternal
+    setTimeout(onChangeExternal, 0);
   }
 
   /**
@@ -445,6 +481,37 @@ export default function TimeInput({
     required: Boolean(required || isClockOpen),
   };
 
+  const handleBlurHourInput = (event: React.FocusEvent<HTMLInputElement>) => {
+    let newAmPm: AmPmType | undefined;
+    if (event.target.name === 'hour12') {
+      if (hour === '0') {
+        setHour('12');
+        setAmPm('am');
+        newAmPm = 'am';
+      } else if (hour) {
+        setAmPm((amPm) => amPm || convert24to12(hour)[1]);
+        newAmPm = amPm || convert24to12(hour)[1];
+      }
+    }
+    if (twoDigitHour.current) {
+      onChangeExternal(newAmPm);
+      twoDigitHour.current = '';
+    }
+  };
+
+  const handleClickInput = (event: React.MouseEvent<HTMLInputElement>) => {
+    // Requires all text to be selected, because if the user clicks within the
+    // hour input and removes just one of the digits, then the twoDigitHour
+    // will be out-of-sync. We also apply this to the other inputs for consistent UX.
+
+    // Select all text in the input when clicked
+    const input = event.target as HTMLInputElement;
+    input.select();
+
+    // Prevent placing the cursor inside the input
+    event.preventDefault();
+  };
+
   function renderHour12(currentMatch: string, index: number) {
     if (currentMatch && currentMatch.length > 2) {
       throw new Error(`Unsupported token: ${currentMatch}`);
@@ -462,7 +529,10 @@ export default function TimeInput({
         inputRef={hour12Input}
         placeholder={hourPlaceholder}
         showLeadingZeros={showLeadingZeros}
+        isFirstDigitZero={twoDigitHour.current === '0'}
         value={hour}
+        onBlur={handleBlurHourInput}
+        onClick={handleClickInput}
       />
     );
   }
@@ -484,6 +554,8 @@ export default function TimeInput({
         placeholder={hourPlaceholder}
         showLeadingZeros={showLeadingZeros}
         value={hour}
+        onBlur={handleBlurHourInput}
+        onClick={handleClickInput}
       />
     );
   }
@@ -514,6 +586,7 @@ export default function TimeInput({
         placeholder={minutePlaceholder}
         showLeadingZeros={showLeadingZeros}
         value={minute}
+        onClick={handleClickInput}
       />
     );
   }
@@ -537,6 +610,7 @@ export default function TimeInput({
         placeholder={secondPlaceholder}
         showLeadingZeros={showLeadingZeros}
         value={second}
+        onClick={handleClickInput}
       />
     );
   }
