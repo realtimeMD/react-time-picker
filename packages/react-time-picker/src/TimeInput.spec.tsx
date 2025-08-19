@@ -462,7 +462,7 @@ describe('TimeInput', () => {
     });
   });
 
-  it('triggers onChange correctly when changed custom input', async () => {
+  it('triggers onChange correctly when changed custom input', () => {
     const onChange = vi.fn();
     const date = '22:17:03';
 
@@ -479,7 +479,7 @@ describe('TimeInput', () => {
     expect(onChange).toHaveBeenCalledWith('20:17:03', false);
   });
 
-  it('triggers onChange correctly when cleared custom inputs', async () => {
+  it('triggers onChange correctly when cleared custom inputs', () => {
     const onChange = vi.fn();
     const date = '22:17:03';
 
