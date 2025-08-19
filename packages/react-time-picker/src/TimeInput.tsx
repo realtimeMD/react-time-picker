@@ -353,7 +353,7 @@ export default function TimeInput({
    * Called after internal onChange. Checks input validity. If all fields are valid,
    * calls props.onChange.
    */
-  function onChangeExternal(amPm?: AmPmType) {
+  function onChangeExternal(amPmOverride?: AmPmType, hourOverride?: string) {
     if (!onChangeProps) {
       return;
     }
@@ -365,14 +365,14 @@ export default function TimeInput({
     }
 
     const formElements = [
-      ...(amPm ? [] : [amPmInput.current]),
-      hour12Input.current,
+      ...(amPmOverride ? [] : [amPmInput.current]),
+      ...(hourOverride ? [] : [hour12Input.current]),
       hour24Input.current,
       minuteInput.current,
       secondInput.current,
     ].filter(filterBoolean);
 
-    const formElementsWithoutSelect = formElements.slice(1);
+    const formElementsWithoutSelect = formElements.slice(amPmOverride ? 0 : 1);
 
     const values: Record<string, string | number> & {
       amPm?: AmPmType;
@@ -389,16 +389,18 @@ export default function TimeInput({
       return;
     }
     const amPmValue =
-      amPm || (!values.amPm && Number(twoDigitHour.current) > 12 ? 'pm' : values.amPm);
+      amPmOverride || (!values.amPm && Number(twoDigitHour.current) > 12 ? 'pm' : values.amPm);
     const isEveryValueFilled = formElements.every((formElement) => formElement.value);
     const isEveryValueValid = formElements.every((formElement) => formElement.validity.valid);
 
     if (isEveryValueFilled && isEveryValueValid) {
-      const hour = Number(
-        values.hour24 ||
-          (values.hour12 && amPmValue && convert12to24(values.hour12, amPmValue)) ||
-          0,
-      );
+      const hour =
+        hourOverride ||
+        Number(
+          values.hour24 ||
+            (values.hour12 && amPmValue && convert12to24(values.hour12, amPmValue)) ||
+            0,
+        );
       const minute = Number(values.minute || 0);
       const second = Number(values.second || 0);
 
@@ -407,6 +409,10 @@ export default function TimeInput({
       const proposedValue = `${padStart(hour)}:${padStart(minute)}:${padStart(second)}`;
 
       const processedValue = getProcessedValue(proposedValue);
+
+      // Avoids extra renders if value is being updated to the current value
+      if (processedValue === valueProps) return;
+
       onChangeProps(processedValue, false);
       return;
     }
@@ -450,8 +456,7 @@ export default function TimeInput({
         break;
     }
 
-    // setTimeout gives the input time to update its value so it can be validated in onChangeExternal
-    setTimeout(onChangeExternal, 0);
+    onChangeExternal();
   }
 
   /**
@@ -483,18 +488,26 @@ export default function TimeInput({
 
   const handleBlurHourInput = (event: React.FocusEvent<HTMLInputElement>) => {
     let newAmPm: AmPmType | undefined;
+    let newHour: string | undefined;
     if (event.target.name === 'hour12') {
       if (hour === '0') {
         setHour('12');
-        setAmPm('am');
-        newAmPm = 'am';
+        if (!amPm || amPm === 'am') {
+          setAmPm('am');
+          newAmPm = 'am';
+          newHour = '00';
+        } else {
+          newHour = '12';
+        }
       } else if (hour) {
-        setAmPm((amPm) => amPm || convert24to12(hour)[1]);
         newAmPm = amPm || convert24to12(hour)[1];
+        setAmPm(newAmPm);
       }
     }
-    if (twoDigitHour.current) {
-      onChangeExternal(newAmPm);
+    if (twoDigitHour.current || amPm !== newAmPm) {
+      // We pass overrides, b/c they are not reflected in the state by the
+      // time onChangeExternal is called
+      onChangeExternal(newAmPm, newHour);
       twoDigitHour.current = '';
     }
   };
