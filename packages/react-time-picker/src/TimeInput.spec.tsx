@@ -1,13 +1,13 @@
 import { userEvent } from '@vitest/browser/context';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 
 import TimeInput from './TimeInput.js';
 
 import { muteConsole, restoreConsole } from '../../../test-utils.js';
 
 // biome-ignore lint/correctness/useHookAtTopLevel: False positive, see https://github.com/biomejs/biome/issues/6396
-vi.useFakeTimers();
+vi.useFakeTimers({ toFake: ['Date'] });
 
 const hasFullICU = (() => {
   try {
@@ -426,15 +426,40 @@ describe('TimeInput', () => {
     expect(minuteInput).toHaveFocus();
   });
 
-  it('does not jump the next field when a value which can be extended to another valid value is entered', async () => {
-    const { container } = render(<TimeInput {...defaultProps} />);
+  describe('does not jump the next field when', async () => {
+    describe('a value which can be extended to another valid value is entered', () => {
+      it('hour starts with a "0"', async () => {
+        const { container } = render(<TimeInput {...defaultProps} />);
+        const customInputs = container.querySelectorAll('input[data-input]');
+        const hourInput = customInputs[0] as HTMLInputElement;
+        await userEvent.type(hourInput, '0');
+        expect(hourInput).toHaveFocus();
+      });
 
-    const customInputs = container.querySelectorAll('input[data-input]');
-    const hourInput = customInputs[0] as HTMLInputElement;
+      it('hour starts with a "1"', async () => {
+        const { container } = render(<TimeInput {...defaultProps} />);
+        const customInputs = container.querySelectorAll('input[data-input]');
+        const hourInput = customInputs[0] as HTMLInputElement;
+        await userEvent.type(hourInput, '1');
+        expect(hourInput).toHaveFocus();
+      });
 
-    await userEvent.type(hourInput, '1');
+      it('hour starts with a "2"', async () => {
+        const { container } = render(<TimeInput {...defaultProps} />);
+        const customInputs = container.querySelectorAll('input[data-input]');
+        const hourInput = customInputs[0] as HTMLInputElement;
+        await userEvent.type(hourInput, '2');
+        expect(hourInput).toHaveFocus();
+      });
+    });
 
-    expect(hourInput).toHaveFocus();
+    it('the second digit entered for the hour would make it larger than 23', async () => {
+      const { container } = render(<TimeInput {...defaultProps} />);
+      const customInputs = container.querySelectorAll('input[data-input]');
+      const hourInput = customInputs[0] as HTMLInputElement;
+      await userEvent.type(hourInput, '24');
+      expect(hourInput).toHaveFocus();
+    });
   });
 
   it('triggers onChange correctly when changed custom input', () => {
@@ -472,6 +497,24 @@ describe('TimeInput', () => {
     expect(onChange).toHaveBeenCalledWith(null, false);
   });
 
+  it('triggers onChange correctly when there is a value for the minute input, but not the amPm, and the hour is set', async () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <TimeInput {...defaultProps} maxDetail="minute" onChange={onChange} value={null} />,
+    );
+
+    const customInputs = container.querySelectorAll('input[data-input]');
+    const hourInput = customInputs[0] as HTMLInputElement;
+    const minuteInput = customInputs[1] as HTMLInputElement;
+
+    fireEvent.change(minuteInput, { target: { value: '30' } });
+    userEvent.type(hourInput, '8');
+
+    await waitFor(() => expect(minuteInput).toHaveFocus());
+
+    expect(onChange).toHaveBeenCalledWith('08:30', false);
+  });
+
   it('triggers onChange correctly when changed native input', () => {
     const onChange = vi.fn();
     const date = '22:17:03';
@@ -503,4 +546,157 @@ describe('TimeInput', () => {
     expect(onChange).toHaveBeenCalled();
     expect(onChange).toHaveBeenCalledWith(null, false);
   });
+
+  it.each`
+    twoDigitHour | hour12 | amPm    | expectedTime
+    ${'00'}      | ${12}  | ${'am'} | ${'00:30'}
+    ${'01'}      | ${1}   | ${'am'} | ${'01:30'}
+    ${'02'}      | ${2}   | ${'am'} | ${'02:30'}
+    ${'03'}      | ${3}   | ${'am'} | ${'03:30'}
+    ${'04'}      | ${4}   | ${'am'} | ${'04:30'}
+    ${'05'}      | ${5}   | ${'am'} | ${'05:30'}
+    ${'06'}      | ${6}   | ${'am'} | ${'06:30'}
+    ${'07'}      | ${7}   | ${'am'} | ${'07:30'}
+    ${'08'}      | ${8}   | ${'am'} | ${'08:30'}
+    ${'09'}      | ${9}   | ${'am'} | ${'09:30'}
+    ${'10'}      | ${10}  | ${'am'} | ${'10:30'}
+    ${'11'}      | ${11}  | ${'am'} | ${'11:30'}
+    ${'12'}      | ${12}  | ${'pm'} | ${'12:30'}
+    ${'13'}      | ${1}   | ${'pm'} | ${'13:30'}
+    ${'14'}      | ${2}   | ${'pm'} | ${'14:30'}
+    ${'15'}      | ${3}   | ${'pm'} | ${'15:30'}
+    ${'16'}      | ${4}   | ${'pm'} | ${'16:30'}
+    ${'17'}      | ${5}   | ${'pm'} | ${'17:30'}
+    ${'18'}      | ${6}   | ${'pm'} | ${'18:30'}
+    ${'19'}      | ${7}   | ${'pm'} | ${'19:30'}
+    ${'20'}      | ${8}   | ${'pm'} | ${'20:30'}
+    ${'21'}      | ${9}   | ${'pm'} | ${'21:30'}
+    ${'22'}      | ${10}  | ${'pm'} | ${'22:30'}
+    ${'23'}      | ${11}  | ${'pm'} | ${'23:30'}
+  `(
+    'converts two digit hour "$twoDigitHour" to $hour12 $amPm',
+    async ({ twoDigitHour, hour12, amPm, expectedTime }) => {
+      const onChange = vi.fn();
+      const { container } = render(
+        <TimeInput {...defaultProps} maxDetail="minute" onChange={onChange} />,
+      );
+
+      const customInputs = container.querySelectorAll('input[data-input]');
+      const hourInput = customInputs[0] as HTMLInputElement;
+      const minuteInput = customInputs[1] as HTMLInputElement;
+      const amPmSelect = container.querySelector('select[name="amPm"]') as HTMLSelectElement;
+
+      await userEvent.clear(hourInput);
+      await userEvent.type(hourInput, twoDigitHour);
+      await userEvent.type(minuteInput, '30');
+
+      expect(hourInput).toHaveValue(hour12);
+      expect(amPmSelect.value).toBe(amPm);
+
+      expect(onChange).toHaveBeenCalledWith(expectedTime, false);
+    },
+  );
+
+  it('automatically sets the amPm for single digit numbers when one has not been set', async () => {
+    const { container } = render(<TimeInput {...defaultProps} />);
+
+    const customInputs = container.querySelectorAll('input[data-input]');
+    const hourInput = customInputs[0] as HTMLInputElement;
+    const amPmSelect = container.querySelector('select[name="amPm"]') as HTMLSelectElement;
+
+    await userEvent.clear(hourInput);
+    await userEvent.type(hourInput, '3');
+
+    expect(hourInput).toHaveValue(3);
+    expect(amPmSelect.value).toBe('am');
+  });
+
+  it('does not allow entering two digit dates larger than 23 (12-hr format)', async () => {
+    const { container } = render(<TimeInput {...defaultProps} maxDetail="second" />);
+
+    const customInputs = container.querySelectorAll('input[data-input]');
+    const hourInput = customInputs[0] as HTMLInputElement;
+
+    await userEvent.type(hourInput, '24');
+
+    expect(hourInput).toHaveValue(2);
+  });
+
+  it('does not allow entering two digit dates larger than 23 (24-hr format)', async () => {
+    const { container } = render(<TimeInput {...defaultProps} maxDetail="second" locale="de-DE" />);
+
+    const customInputs = container.querySelectorAll('input[data-input]');
+    const hourInput = customInputs[0] as HTMLInputElement;
+
+    await userEvent.type(hourInput, '24');
+
+    expect(hourInput).toHaveValue(2);
+  });
+
+  it('allows using backspace to delete characters when entering a two-digit hour', async () => {
+    const { container } = render(<TimeInput {...defaultProps} maxDetail="second" />);
+
+    const customInputs = container.querySelectorAll('input[data-input]');
+    const hourInput = customInputs[0] as HTMLInputElement;
+
+    await userEvent.type(hourInput, '1');
+    expect(hourInput).toHaveValue(1);
+
+    await userEvent.type(hourInput, '{backspace}14');
+    expect(hourInput).toHaveValue(2);
+  });
+
+  it.each`
+    twoDigitHour | hour12 | amPm    | expectedTime
+    ${'00'}      | ${12}  | ${'am'} | ${'12:17'}
+    ${'01'}      | ${1}   | ${'am'} | ${'13:17'}
+    ${'02'}      | ${2}   | ${'am'} | ${'14:17'}
+    ${'03'}      | ${3}   | ${'am'} | ${'15:17'}
+    ${'04'}      | ${4}   | ${'am'} | ${'16:17'}
+    ${'05'}      | ${5}   | ${'am'} | ${'17:17'}
+    ${'06'}      | ${6}   | ${'am'} | ${'18:17'}
+    ${'07'}      | ${7}   | ${'am'} | ${'19:17'}
+    ${'08'}      | ${8}   | ${'am'} | ${'20:17'}
+    ${'09'}      | ${9}   | ${'am'} | ${'21:17'}
+    ${'10'}      | ${10}  | ${'am'} | ${'22:17'}
+    ${'11'}      | ${11}  | ${'am'} | ${'23:17'}
+    ${'12'}      | ${12}  | ${'pm'} | ${'00:17'}
+    ${'13'}      | ${1}   | ${'pm'} | ${'01:17'}
+    ${'14'}      | ${2}   | ${'pm'} | ${'02:17'}
+    ${'15'}      | ${3}   | ${'pm'} | ${'03:17'}
+    ${'16'}      | ${4}   | ${'pm'} | ${'04:17'}
+    ${'17'}      | ${5}   | ${'pm'} | ${'05:17'}
+    ${'18'}      | ${6}   | ${'pm'} | ${'06:17'}
+    ${'19'}      | ${7}   | ${'pm'} | ${'07:17'}
+    ${'20'}      | ${8}   | ${'pm'} | ${'08:17'}
+    ${'21'}      | ${9}   | ${'pm'} | ${'09:17'}
+    ${'22'}      | ${10}  | ${'pm'} | ${'10:17'}
+    ${'23'}      | ${11}  | ${'pm'} | ${'11:17'}
+  `(
+    'does not update the amPm value when $twoDigitHour is entered if it is already set',
+    async ({ twoDigitHour, hour12, amPm, expectedTime }) => {
+      const onChange = vi.fn();
+      const { container } = render(
+        <TimeInput {...defaultProps} maxDetail="minute" onChange={onChange} />,
+      );
+
+      const customInputs = container.querySelectorAll('input[data-input]');
+      const hourInput = customInputs[0] as HTMLInputElement;
+      const minuteInput = customInputs[1] as HTMLInputElement;
+      const amPmSelect = container.querySelector('select[name="amPm"]') as HTMLSelectElement;
+
+      // Set amPm to the opposite value first
+      const oppositeAmPmFromTwoDigitHour = amPm === 'am' ? 'pm' : 'am';
+      fireEvent.change(amPmSelect, { target: { value: oppositeAmPmFromTwoDigitHour } });
+
+      await userEvent.type(minuteInput, '17');
+      await userEvent.type(hourInput, twoDigitHour);
+
+      expect(hourInput).toHaveValue(hour12);
+      // Assert that amPm did not change from the initial value
+      expect(amPmSelect.value).toBe(oppositeAmPmFromTwoDigitHour);
+
+      expect(onChange).toHaveBeenCalledWith(expectedTime, false);
+    },
+  );
 });

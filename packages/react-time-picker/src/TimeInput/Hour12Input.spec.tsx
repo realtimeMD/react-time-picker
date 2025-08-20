@@ -68,6 +68,14 @@ describe('Hour12Input', () => {
     expect(input).not.toHaveClass(`${defaultProps.className}__input--hasLeadingZero`);
   });
 
+  it('renders "0" when isFirstDigitZero is true', () => {
+    const { container } = render(<Hour12Input {...defaultProps} value="0" isFirstDigitZero />);
+
+    const input = container.querySelector('input');
+
+    expect(input).toHaveValue(0);
+  });
+
   it('has proper name defined', () => {
     const { container } = render(<Hour12Input {...defaultProps} />);
 

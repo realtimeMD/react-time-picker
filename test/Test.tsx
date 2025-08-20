@@ -43,6 +43,11 @@ export default function Test() {
   const [required, setRequired] = useState(true);
   const [value, setValue] = useState<LooseValue>(getHoursMinutesSeconds(now));
 
+  const handleValueChange = (newTime: LooseValue) => {
+    console.log('onChange:', newTime);
+    setValue(newTime);
+  };
+
   return (
     <div className="Test">
       <header>
@@ -60,7 +65,7 @@ export default function Test() {
             setRequired={setRequired}
           />
           <LocaleOptions locale={locale} setLocale={setLocale} />
-          <ValueOptions setValue={setValue} value={value} />
+          <ValueOptions setValue={handleValueChange} value={value} />
           <ViewOptions
             disabled={disabled}
             renderInPortal={renderInPortal}
@@ -89,7 +94,7 @@ export default function Test() {
               maxTime={maxTime}
               minTime={minTime}
               name="myCustomName"
-              onChange={setValue}
+              onChange={handleValueChange}
               onClockClose={() => console.log('Clock closed')}
               onClockOpen={() => console.log('Clock opened')}
               portalContainer={renderInPortal ? portalContainer.current : undefined}
