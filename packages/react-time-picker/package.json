@@ -1,7 +1,8 @@
 {
-  "name": "react-time-picker",
-  "version": "8.0.2",
-  "description": "A time picker for your React app.",
+  "name": "@realtimemd/react-time-picker",
+  "version": "1.0.0",
+  "x-upstreamVersion": "8.0.2",
+  "description": "Forked from wojtekmaj/react-time-picker",
   "type": "module",
   "sideEffects": [
     "*.css"
@@ -43,10 +44,6 @@
     "time",
     "time-picker"
   ],
-  "author": {
-    "name": "Wojciech Maj",
-    "email": "kontakt@wojtekmaj.pl"
-  },
   "license": "MIT",
   "dependencies": {
     "@wojtekmaj/date-utils": "^2.0.2",
@@ -85,8 +82,7 @@
     }
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "registry": "https://npm.pkg.github.com/"
   },
   "files": [
     "dist",
@@ -94,8 +90,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wojtekmaj/react-time-picker.git",
+    "url": "git+https://github.com/realtimeMD/react-time-picker.git",
     "directory": "packages/react-time-picker"
-  },
-  "funding": "https://github.com/wojtekmaj/react-time-picker?sponsor=1"
+  }
 }
