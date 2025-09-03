@@ -3,11 +3,15 @@ name: Release and Publish @realtimemd/react-time-picker
 on:
   workflow_dispatch:
     inputs:
-      newversion:
-        description: 'New Semantic Release Version No.'
-        default: ''
+      semverStrategy:
+        description: 'Select semantic version bump strategy'
+        type: choice
         required: true
-        type: string
+        default: patch
+        options:
+          - major
+          - minor
+          - patch
 
 env:
   HUSKY: 0
@@ -38,31 +42,42 @@ jobs:
         run: yarn install --immutable
 
       - name: Bump package version
-        run: yarn version --new-version "${{ github.event.inputs.newversion }}" --no-git-tag-version
-        working-directory: packages/react-time-picker
+        run: yarn workspace @realtimemd/react-time-picker version "${{ github.event.inputs.semverStrategy }}"
         env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read bumped version
+        id: read_version
+        run: |
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("packages/react-time-picker/package.json", "utf8"));
+            const v = pkg.version;
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${v}\n`);
+            fs.appendFileSync(process.env.GITHUB_ENV, `NEW_VERSION=${v}\n`);
+            console.log(`Detected version: ${v}`);
+          '
 
       - name: Commit Updated package.json file
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add .
-          git commit -m "Update Package.json to ${{ github.event.inputs.newversion }}"
+          git commit -m "Update Package.json to ${{ steps.read_version.outputs.version }}"
           git push
 
       - name: Publish
         run: yarn npm publish
         working-directory: packages/react-time-picker
         env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.PACKAGE_DEPLOY_RELEASE }} # This token is provided by Actions, you do not need to create your own token
-          tag_name: v${{ github.event.inputs.newversion }}
-          name: Release ${{ github.event.inputs.newversion }}
+          tag_name: v${{ steps.read_version.outputs.version }}
+          name: Release ${{ steps.read_version.outputs.version }}
           draft: false
           prerelease: false
+          generate_release_notes: true
