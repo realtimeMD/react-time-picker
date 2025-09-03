@@ -115,7 +115,7 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: yarn workspace react-time-picker playwright install chromium-headless-shell
+        run: yarn workspace @realtimemd/react-time-picker playwright install chromium-headless-shell
 
       - name: Run tests
         run: yarn unit
