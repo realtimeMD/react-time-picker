@@ -1,56 +1,68 @@
-name: Publish
+name: Release and Publish @realtimemd/react-time-picker
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      newversion:
+        description: 'New Semantic Release Version No.'
+        default: ''
+        required: true
+        type: string
 
 env:
   HUSKY: 0
 
-permissions:
-  id-token: write
-
 jobs:
   publish:
-    name: Publish
-    runs-on: ubuntu-24.04-arm
-
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Cache Yarn cache
-        uses: actions/cache@v4
-        env:
-          cache-name: yarn-cache
         with:
-          path: ~/.yarn/berry/cache
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ env.cache-name }}
+          fetch-depth: 0
+          ref: main
 
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 23.10.0
+          registry-url: https://npm.pkg.github.com/
 
-      - name: Enable Corepack
+      - name: Enable Corepack (Yarn 4)
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn --immutable
+        run: yarn install --immutable
 
-      - name: Publish with latest tag
-        if: github.event.release.prelease == false
-        run: yarn npm publish --tag latest --provenance
+      - name: Bump package version
+        run: yarn version --new-version "${{ github.event.inputs.newversion }}" --no-git-tag-version
         working-directory: packages/react-time-picker
         env:
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
-      - name: Publish with next tag
-        if: github.event.release.prelease == true
-        run: yarn npm publish --tag next --provenance
+      - name: Commit Updated package.json file
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "Update Package.json to ${{ github.event.inputs.newversion }}"
+          git push
+
+      - name: Publish
+        run: yarn npm publish
         working-directory: packages/react-time-picker
         env:
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.PACKAGE_DEPLOY_RELEASE }} # This token is provided by Actions, you do not need to create your own token
+          tag_name: v${{ github.event.inputs.newversion }}
+          name: Release ${{ github.event.inputs.newversion }}
+          draft: false
+          prerelease: false

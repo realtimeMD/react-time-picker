@@ -8,8 +8,8 @@
     "test"
   ],
   "scripts": {
-    "build": "yarn workspace react-time-picker build",
-    "dev": "yarn workspace react-time-picker watch & yarn workspace test dev",
+    "build": "yarn workspace @realtimemd/react-time-picker build",
+    "dev": "yarn workspace @realtimemd/react-time-picker watch & yarn workspace test dev",
     "format": "yarn workspaces foreach --all run format",
     "lint": "yarn workspaces foreach --all run lint",
     "postinstall": "husky",
