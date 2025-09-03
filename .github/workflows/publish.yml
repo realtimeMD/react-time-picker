@@ -12,7 +12,6 @@ on:
           - major
           - minor
           - patch
-          - decline
 
 env:
   HUSKY: 0
