@@ -1,4 +1,4 @@
-name: Release and Publish @realtimemd/react-time-picker
+name: Release and Publish
 
 on:
   workflow_dispatch:
@@ -28,6 +28,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: main
+          token: ${{ secrets.PACKAGE_DEPLOY_RELEASE }}
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -44,7 +45,7 @@ jobs:
       - name: Bump package version
         run: yarn workspace @realtimemd/react-time-picker version "${{ github.event.inputs.semverStrategy }}"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Read bumped version
         id: read_version
@@ -76,6 +77,7 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.PACKAGE_DEPLOY_RELEASE }} # This token is provided by Actions, you do not need to create your own token
           tag_name: v${{ steps.read_version.outputs.version }}
           name: Release ${{ steps.read_version.outputs.version }}
           draft: false
