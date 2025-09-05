@@ -97,8 +97,8 @@ jobs:
           STRATEGY: ${{ github.event.inputs.semverStrategy }}
         run: |
           # Avoid creating a duplicate PR
-          if [ -n "$(gh pr list --head "$BRANCH" --json number --jq 'length')" ] && \
-             [ "$(gh pr list --head "$BRANCH" --json number --jq 'length')" != "0" ]; then
+          OPEN_COUNT="$(gh pr list --head "$BRANCH" --json number --jq 'length')"
+          if [ -n "$OPEN_COUNT" ] && [ "$OPEN_COUNT" != "0" ]; then
             echo "PR for $BRANCH already exists. Skipping create."
             exit 0
           fi
