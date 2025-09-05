@@ -1,83 +1,128 @@
-name: Release and Publish @realtimemd/react-time-picker
+name: Release and Publish
 
 on:
+  pull_request:
+    types: [closed]
   workflow_dispatch:
     inputs:
-      semverStrategy:
-        description: 'Select semantic version bump strategy'
+      note:
+        description: "This workflow runs automatically when a release PR is merged. Only run it manually if it failed on the last run."
         type: choice
-        required: true
-        default: patch
         options:
-          - major
-          - minor
-          - patch
+          - Understood
+        default: Understood
+        required: false
 
 env:
   HUSKY: 0
 
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-and-publish
+  cancel-in-progress: false
+
 jobs:
-  publish:
+  check_rerun_allowed:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    outputs:
+      can_rerun: ${{ steps.check.outputs.can_rerun }}
+      last_conclusion: ${{ steps.check.outputs.last_conclusion }}
+    steps:
+      - name: Check last run status
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+              owner,
+              repo,
+              per_page: 30,
+              status: 'completed',
+            });
+            const thisRunId = context.runId;
+            const sameWorkflow = runs.data.workflow_runs.filter(r => r.name === context.workflow && r.id !== thisRunId);
+            const last = sameWorkflow[0];
+            const can = !last || last.conclusion !== 'success';
+            core.setOutput('can_rerun', String(can));
+            core.setOutput('last_conclusion', last ? last.conclusion : 'none');
+
+  release_and_publish:
+    needs: [check_rerun_allowed]
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/react-time-picker-v')) ||
+      (github.event_name == 'workflow_dispatch' && needs.check_rerun_allowed.outputs.can_rerun == 'true')
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
+          fetch-tags: true
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.ref }}
 
-      - name: Use Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 23.10.0
           registry-url: https://npm.pkg.github.com/
 
-      - name: Enable Corepack (Yarn 4)
+      - name: Enable Corepack (Yarn)
         run: corepack enable
 
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Bump package version
-        run: yarn workspace @realtimemd/react-time-picker version "${{ github.event.inputs.semverStrategy }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Read bumped version
-        id: read_version
+      - name: Get version
+        id: version
         run: |
-          node -e '
-            const fs = require("fs");
-            const pkg = JSON.parse(fs.readFileSync("packages/react-time-picker/package.json", "utf8"));
-            const v = pkg.version;
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${v}\n`);
-            fs.appendFileSync(process.env.GITHUB_ENV, `NEW_VERSION=${v}\n`);
-            console.log(`Detected version: ${v}`);
-          '
+          echo "version=$(node -p \"require('./packages/react-time-picker/package.json').version\")" >> "$GITHUB_OUTPUT"
 
-      - name: Commit Updated package.json file
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .
-          git commit -m "Update Package.json to ${{ steps.read_version.outputs.version }}"
-          git push
-
-      - name: Publish
-        run: yarn npm publish
-        working-directory: packages/react-time-picker
+      - name: Ensure tag exists
         env:
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          TAG="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists."
+          else
+            echo "Creating missing tag $TAG."
+            git tag -a "$TAG" -m "react-time-picker v$VERSION"
+            git push origin "$TAG"
+          fi
 
-      - name: Create Release
-        id: create_release
+      - name: Check if release exists
+        id: check_release
+        uses: actions/github-script@v7
+        env:
+          TAG: v${{ steps.version.outputs.version }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.repos.getReleaseByTag({ owner, repo, tag: process.env.TAG });
+              core.setOutput('exists', 'true');
+            } catch (e) {
+              core.setOutput('exists', 'false');
+            }
+
+      - name: Create GitHub Release
+        if: steps.check_release.outputs.exists != 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.read_version.outputs.version }}
-          name: Release ${{ steps.read_version.outputs.version }}
+          token: ${{ github.token }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
           generate_release_notes: true
+
+      - name: Publish to GitHub Packages (set in package.json)
+        working-directory: packages/react-time-picker
+        run: yarn npm publish
+        env:
+          YARN_NPM_AUTH_TOKEN: ${{ github.token }}

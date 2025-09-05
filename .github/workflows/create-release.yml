@@ -1,0 +1,109 @@
+name: Prepare Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      semverStrategy:
+        description: 'Select semantic version'
+        type: choice
+        required: true
+        default: patch
+        options:
+          - major
+          - minor
+          - patch
+
+env:
+  HUSKY: 0
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-release-pr
+  cancel-in-progress: false
+
+jobs:
+  bump_and_open_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 23.10.0
+
+      - name: Enable Corepack (Yarn)
+        run: corepack enable
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Bump package version
+        run: |
+          yarn workspace @realtimemd/react-time-picker version "${{ github.event.inputs.semverStrategy }}"
+
+      - name: Read new version
+        id: version
+        run: |
+          echo "version=$(node -p \"require('./packages/react-time-picker/package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Create release branch, commit, and tag
+        id: commit_and_tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          BRANCH="release/react-time-picker-v$VERSION"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          git switch -c "$BRANCH"
+          git add packages/react-time-picker/package.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): v$VERSION"
+          else
+            echo "No changes to commit. Aborting." >&2
+            exit 1
+          fi
+
+          # Create tag if it doesn't already exist (locally or remotely)
+          TAG="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists locally; skipping tag creation."
+          else
+            git tag -a "$TAG" -m "react-time-picker v$VERSION"
+          fi
+
+          # Push branch and tag if not present remotely
+          git push origin "$BRANCH"
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "Remote tag $TAG already exists; skipping tag push."
+          else
+            git push origin "$TAG"
+          fi
+
+      - name: Open Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BRANCH: ${{ steps.commit_and_tag.outputs.branch }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          STRATEGY: ${{ github.event.inputs.semverStrategy }}
+        run: |
+          # Avoid creating a duplicate PR
+          if [ -n "$(gh pr list --head "$BRANCH" --json number --jq 'length')" ] && \
+             [ "$(gh pr list --head "$BRANCH" --json number --jq 'length')" != "0" ]; then
+            echo "PR for $BRANCH already exists. Skipping create."
+            exit 0
+          fi
+          gh pr create \
+            --title "Release [$STRATEGY]: @realtimemd/react-time-picker v$VERSION" \
+            --body "This PR bumps @realtimemd/react-time-picker to v$VERSION." \
+            --base "$BASE_BRANCH" \
+            --head "$BRANCH"
