@@ -1,6 +1,6 @@
 {
   "name": "@realtimemd/react-time-picker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "x-upstreamVersion": "8.0.2",
   "description": "Forked from wojtekmaj/react-time-picker",
   "type": "module",
