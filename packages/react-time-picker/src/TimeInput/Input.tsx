@@ -152,7 +152,7 @@ export default function Input({
   value,
 }: InputProps): React.ReactElement {
   useIsomorphicLayoutEffect(() => {
-    if (!inputRef || !inputRef.current) {
+    if (!inputRef?.current) {
       return;
     }
 

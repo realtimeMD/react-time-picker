@@ -1,7 +1,7 @@
 {
   "name": "@realtimemd/react-time-picker",
   "version": "1.0.1",
-  "x-upstreamVersion": "8.0.2",
+  "x-upstreamVersion": "8.0.3",
   "description": "Forked from wojtekmaj/react-time-picker",
   "type": "module",
   "sideEffects": [
@@ -55,21 +55,18 @@
     "update-input-width": "^1.4.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.0.0",
-    "@testing-library/dom": "^10.0.0",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/react": "^16.0.0",
+    "@biomejs/biome": "2.4.10",
     "@types/node": "*",
-    "@types/react": "*",
-    "@types/react-dom": "*",
-    "@vitest/browser": "^3.2.3",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitest/browser-playwright": "^4.1.0",
     "cpy-cli": "^5.0.0",
-    "playwright": "^1.51.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "typescript": "^5.5.2",
-    "vitest": "^3.2.3",
-    "vitest-browser-react": "^1.0.1"
+    "playwright": "^1.55.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.0",
+    "vitest-browser-react": "^2.2.0"
   },
   "peerDependencies": {
     "@types/react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
@@ -85,8 +82,10 @@
     "registry": "https://npm.pkg.github.com/"
   },
   "files": [
-    "dist",
-    "src"
+    "dist/**/*",
+    "src/**/*",
+    "!**/*.spec.ts",
+    "!**/*.spec.tsx"
   ],
   "repository": {
     "type": "git",

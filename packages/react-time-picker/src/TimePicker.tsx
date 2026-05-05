@@ -463,12 +463,7 @@ export default function TimePicker(props: TimePickerProps): React.ReactElement {
         'composedPath' in event ? event.composedPath()[0] : (event as Event).target
       ) as HTMLElement;
 
-      if (
-        target &&
-        wrapperEl &&
-        !wrapperEl.contains(target) &&
-        (!clockWrapperEl || !clockWrapperEl.contains(target))
-      ) {
+      if (target && wrapperEl && !wrapperEl.contains(target) && !clockWrapperEl?.contains(target)) {
         closeClock({ reason: 'outsideAction' });
       }
     },
@@ -543,6 +538,7 @@ export default function TimePicker(props: TimePickerProps): React.ReactElement {
           <button
             aria-label={clearAriaLabel}
             className={`${baseClassName}__clear-button ${baseClassName}__button`}
+            data-testid="clear-button"
             disabled={disabled}
             onClick={clear}
             onFocus={stopPropagation}
@@ -556,6 +552,7 @@ export default function TimePicker(props: TimePickerProps): React.ReactElement {
             aria-expanded={isOpen || false}
             aria-label={clockAriaLabel}
             className={`${baseClassName}__clock-button ${baseClassName}__button`}
+            data-testid="clock-button"
             disabled={disabled}
             onClick={toggleClock}
             onFocus={stopPropagation}
