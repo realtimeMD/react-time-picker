@@ -37,7 +37,7 @@
     "test": "yarn lint && yarn tsc && yarn format && yarn unit",
     "tsc": "tsc",
     "unit": "vitest",
-    "watch": "yarn build-js --watch & node --eval \"fs.watch('src', () => child_process.exec('yarn copy-styles'))\""
+    "watch": "yarn build --watch & node --eval \"fs.watch('src', () => child_process.exec('yarn copy-styles'))\""
   },
   "keywords": [
     "react",
