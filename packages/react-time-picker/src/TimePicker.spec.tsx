@@ -43,6 +43,32 @@ describe('TimePicker', () => {
     expect(nativeInput).toHaveAttribute('name', name);
   });
 
+  it('passes customInputsForm to custom inputs only', async () => {
+    const { container } = await render(
+      <form>
+        <TimePicker
+          {...defaultProps}
+          customInputsForm=""
+          format="h:mm:ss a"
+          maxDetail="second"
+          name="startTime"
+          value="22:15:30"
+        />
+      </form>,
+    );
+
+    const form = container.querySelector('form') as HTMLFormElement;
+    const customInputs = container.querySelectorAll('[data-input="true"]');
+
+    expect(customInputs).toHaveLength(4);
+
+    for (const customInput of customInputs) {
+      expect(customInput).toHaveAttribute('form', '');
+    }
+
+    expect(Array.from(new FormData(form).entries())).toEqual([['startTime', '22:15:30']]);
+  });
+
   it('passes autoFocus flag to TimeInput', async () => {
     await render(<TimePicker {...defaultProps} autoFocus />);
 
@@ -543,14 +569,14 @@ describe('TimePicker', () => {
       await userEvent.fill(hourInput, '9');
     });
 
-    await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith('21:41:28'));
+    expect(onChange).toHaveBeenCalledWith('21:41:28');
   });
 
   it('calls onInvalidChange callback when changing value to an invalid one', async () => {
     const value = '22:41:28';
     const onInvalidChange = vi.fn();
 
-    const { container } = await render(
+    await render(
       <TimePicker
         {...defaultProps}
         maxDetail="second"
@@ -559,13 +585,13 @@ describe('TimePicker', () => {
       />,
     );
 
-    const minuteInput = container.querySelector('input[name="minute"]') as HTMLInputElement;
+    const hourInput = page.getByRole('spinbutton', { name: 'hour' });
 
     await act(async () => {
-      await userEvent.fill(minuteInput, '65');
+      await userEvent.fill(hourInput, '99');
     });
 
-    await vi.waitFor(() => expect(onInvalidChange).toHaveBeenCalled());
+    expect(onInvalidChange).toHaveBeenCalled();
   });
 
   it('clears the value when clicking on a button', async () => {
