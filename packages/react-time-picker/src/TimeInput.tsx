@@ -104,6 +104,7 @@ type TimeInputProps = {
   amPmAriaLabel?: string;
   autoFocus?: boolean;
   className: string;
+  customInputsForm?: string;
   disabled?: boolean;
   format?: string;
   hourAriaLabel?: string;
@@ -129,6 +130,7 @@ export default function TimeInput({
   amPmAriaLabel,
   autoFocus,
   className,
+  customInputsForm,
   disabled,
   format,
   hourAriaLabel,
@@ -162,6 +164,7 @@ export default function TimeInput({
   const secondInput = useRef<HTMLInputElement>(null);
   const [isClockOpen, setIsClockOpen] = useState(isClockOpenProps);
   const lastPressedKey = useRef<KeyboardEvent['key'] | undefined>(undefined);
+  const previousValueProps = useRef(valueProps);
 
   useEffect(() => {
     setIsClockOpen(isClockOpenProps);
@@ -177,13 +180,15 @@ export default function TimeInput({
       setMinute(getMinutes(nextValue).toString());
       setSecond(getSeconds(nextValue).toString());
       setValue(nextValue);
-    } else {
+    } else if (valueProps !== previousValueProps.current || valueProps != null) {
       setAmPm(null);
       setHour(null);
       setMinute(null);
       setSecond(null);
       setValue(null);
     }
+
+    previousValueProps.current = valueProps;
   }, [
     valueProps,
     minTime,
@@ -411,7 +416,9 @@ export default function TimeInput({
       const processedValue = getProcessedValue(proposedValue);
 
       // Avoids extra renders if value is being updated to the current value
-      if (processedValue === valueProps) return;
+      if (processedValue === valueProps) {
+        return;
+      }
 
       onChangeProps(processedValue, false);
       return;
@@ -435,7 +442,9 @@ export default function TimeInput({
         setAmPm(value as AmPmType);
         break;
       case 'hour12': {
-        if (Number(value) > 23) break;
+        if (Number(value) > 23) {
+          break;
+        }
         const newHour = value
           ? acceptedFirstDigitsForHour.includes(twoDigitHour.current)
             ? value
@@ -445,7 +454,9 @@ export default function TimeInput({
         break;
       }
       case 'hour24':
-        if (Number(value) > 23) break;
+        if (Number(value) > 23) {
+          break;
+        }
         setHour(value);
         break;
       case 'minute':
@@ -477,6 +488,7 @@ export default function TimeInput({
   const commonInputProps = {
     className,
     disabled,
+    form: customInputsForm,
     maxTime,
     minTime,
     onChange,
